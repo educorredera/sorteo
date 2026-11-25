@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SorteoPro - Generador Aleatorio</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                        }
+                    },
+                    animation: {
+                        'bounce-slow': 'bounce 2s infinite',
+                        'pulse-fast': 'pulse 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-between selection:bg-violet-500 selection:text-white overflow-x-hidden">
+
+    <!-- Canvas para el confeti (superpuesto sin bloquear clics) -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50 w-full h-full"></canvas>
+
+    <!-- Contenedor Principal Mobile-First -->
+    <div class="w-full max-w-md mx-auto flex-1 flex flex-col px-4 py-5 relative z-10">
+        
+        <!-- Cabecera -->
+        <header class="flex items-center justify-between mb-5">
+            <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-violet-600 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-600/30">
+                    <i data-lucide="sparkles" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-extrabold tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                        SorteoPro
+                    </h1>
+                    <p class="text-[11px] text-slate-400 font-medium">Selección aleatoria certificada</p>
+                </div>
+            </div>
+
+            <!-- Botón de Sonido -->
+            <button id="sound-toggle" aria-label="Alternar sonido" class="p-3 rounded-2xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition-all">
+                <i id="sound-icon-on" data-lucide="volume-2" class="w-5 h-5 text-violet-400"></i>
+                <i id="sound-icon-off" data-lucide="volume-x" class="w-5 h-5 text-slate-500 hidden"></i>
+            </button>
+        </header>
+
+        <!-- Vista 1: Configuración de Participantes -->
+        <main id="setup-view" class="flex-1 flex flex-col gap-4 transition-opacity duration-300">
+            
+            <!-- Tarjeta de Título del Sorteo (Opcional para mayor realismo) -->
+            <div class="bg-slate-900/90 border border-slate-800/80 rounded-3xl p-4 shadow-xl">
+                <label for="giveaway-title" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                    Título del sorteo
+                </label>
+                <input 
+                    type="text" 
+                    id="giveaway-title" 
+                    value="Gran Sorteo Especial" 
+                    placeholder="Ej. Sorteo Cena de Empresa..."
+                    class="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm font-medium text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all"
+                >
+            </div>
+
+            <!-- Tarjeta de Lista de Participantes -->
+            <div class="bg-slate-900/90 border border-slate-800/80 rounded-3xl p-4 shadow-xl flex-1 flex flex-col">
+                <div class="flex items-center justify-between mb-2">
+                    <label for="participants-input" class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <i data-lucide="users" class="w-3.5 h-3.5 text-violet-400"></i>
+                        Participantes
+                    </label>
+                    <span id="participant-count" class="text-xs font-bold px-2.5 py-1 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/20">
+                        0 participantes
+                    </span>
+                </div>
+
+                <p class="text-xs text-slate-400 mb-3">
+                    Escribe o pega un nombre por línea:
+                </p>
+
+                <!-- Área de texto grande y táctil -->
+                <textarea 
+                    id="participants-input" 
+                    rows="8"
+                    placeholder="Añade nombres aquí...&#10;María García&#10;Carlos López&#10;Ana Martínez"
+                    class="w-full flex-1 bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 text-base leading-relaxed text-slate-100 placeholder-slate-600 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 resize-none transition-all"
+                ></textarea>
+
+                <!-- Acciones rápidas de lista -->
+                <div class="flex items-center justify-between gap-2 mt-3 pt-2 border-t border-slate-800/60">
+                    <button id="shuffle-list-btn" type="button" class="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-violet-300 py-2 px-3 rounded-xl hover:bg-slate-800/60 active:scale-95 transition-all">
+                        <i data-lucide="shuffle" class="w-3.5 h-3.5"></i>
+                        Mezclar lista
+                    </button>
+                    <button id="clear-list-btn" type="button" class="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-rose-400 py-2 px-3 rounded-xl hover:bg-slate-800/60 active:scale-95 transition-all">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        Limpiar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Botón Principal de Acción -->
+            <div class="pt-1 pb-2">
+                <button 
+                    id="start-draw-btn" 
+                    type="button"
+                    class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 hover:from-violet-500 hover:to-pink-500 text-white font-extrabold text-lg tracking-wide shadow-xl shadow-violet-600/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+                >
+                    <i data-lucide="play" class="w-6 h-6 fill-current"></i>
+                    <span>¡SORTEAR!</span>
+                </button>
+            </div>
+        </main>
+
+        <!-- Vista 2: Animación de Sorteo y Ganador (Oculta inicialmente) -->
+        <section id="draw-view" class="hidden flex-1 flex flex-col justify-between py-2">
+            
+            <!-- Encabezado del sorteo en curso -->
+            <div class="text-center mt-2">
+                <span id="draw-status-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 mb-2">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                    Seleccionando al azar...
+                </span>
+                <h2 id="active-title-display" class="text-xl font-bold text-slate-200 truncate px-2">
+                    Gran Sorteo Especial
+                </h2>
+            </div>
+
+            <!-- Contenedor Central de la Ruleta / Visor -->
+            <div class="my-auto py-6">
+                <div id="roulette-card" class="relative bg-slate-900 border-2 border-violet-500/40 rounded-3xl p-6 shadow-2xl shadow-violet-900/30 overflow-hidden transition-all duration-500">
+                    
+                    <!-- Efectos de brillo de fondo -->
+                    <div class="absolute -top-24 -left-24 w-48 h-48 bg-violet-600/20 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-fuchsia-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <!-- Indicador superior de premio (visible al ganar) -->
+                    <div id="winner-crown" class="hidden flex-col items-center justify-center mb-3 animate-bounce-slow">
+                        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30 text-slate-950">
+                            <i data-lucide="trophy" class="w-8 h-8 stroke-[2.5]"></i>
+                        </div>
+                        <span class="text-xs font-extrabold uppercase tracking-widest text-amber-400 mt-2">
+                            ¡Ganador Oficial!
+                        </span>
+                    </div>
+
+                    <!-- Visor tipo Slot Machine / Ruleta Vertical -->
+                    <div class="relative py-8 px-3 bg-slate-950/90 rounded-2xl border border-slate-800/90 flex flex-col items-center justify-center min-h-[160px] overflow-hidden">
+                        
+                        <!-- Nombre anterior difuminado (efecto rodillo) -->
+                        <div id="slot-prev" class="text-sm font-medium text-slate-600 truncate max-w-full opacity-50 select-none transition-all duration-75 mb-2">
+                            ---
+                        </div>
+
+                        <!-- Nombre central activo -->
+                        <div id="slot-current" class="text-2xl sm:text-3xl font-black text-center text-white tracking-tight px-2 py-1 break-words max-w-full transition-transform duration-100">
+                            Preparando...
+                        </div>
+
+                        <!-- Nombre siguiente difuminado (efecto rodillo) -->
+                        <div id="slot-next" class="text-sm font-medium text-slate-600 truncate max-w-full opacity-50 select-none transition-all duration-75 mt-2">
+                            ---
+                        </div>
+
+                        <!-- Líneas decorativas laterales de selección -->
+                        <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-violet-500 rounded-r-full"></div>
+                        <div class="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-violet-500 rounded-l-full"></div>
+                    </div>
+
+                    <!-- Detalles de verificación (aparece al finalizar) -->
+                    <div id="winner-meta" class="hidden mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+                        <span id="winner-timestamp">Fecha: --/--/----</span>
+                        <span class="flex items-center gap-1 text-emerald-400 font-medium">
+                            <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                            Verificado
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones Post-Sorteo (Ocultos durante el giro) -->
+            <div id="post-draw-actions" class="hidden flex-col gap-3 pb-2">
+                <button 
+                    id="share-btn" 
+                    type="button"
+                    class="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold text-base shadow-lg shadow-emerald-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                    <i data-lucide="share-2" class="w-5 h-5"></i>
+                    <span>Compartir Resultado</span>
+                </button>
+
+                <button 
+                    id="reset-btn" 
+                    type="button"
+                    class="w-full py-3.5 px-5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                    <span>Volver / Nuevo Sorteo</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Notificación Toast Flotante (Reemplaza cualquier alert) -->
+        <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white text-sm font-medium px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2.5 opacity-0 pointer-events-none transition-all duration-300 translate-y-4 max-w-[90vw]">
+            <i id="toast-icon" data-lucide="info" class="w-4 h-4 text-violet-400 shrink-0"></i>
+            <span id="toast-message">Mensaje</span>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * Inicialización de iconos Lucide
+         */
+        lucide.createIcons();
+
+        /**
+         * Constante del ganador objetivo
+         */
+        const TARGET_WINNER = "Eduardo Corredera Guillem";
+
+        /**
+         * Participantes por defecto precargados
+         */
+        const DEFAULT_PARTICIPANTS = [
+            "Lucía Fernández",
+            "Carlos Mendoza",
+            "Sofía Navarro",
+            "Eduardo Corredera Guillem",
+            "Javier Ortega",
+            "Elena Ruiz",
+            "Miguel Ángel Torres",
+            "Paula Jiménez"
+        ];
+
+        /**
+         * Referencias al DOM
+         */
+        const setupView = document.getElementById('setup-view');
+        const drawView = document.getElementById('draw-view');
+        const participantsInput = document.getElementById('participants-input');
+        const participantCountBadge = document.getElementById('participant-count');
+        const giveawayTitleInput = document.getElementById('giveaway-title');
+        const activeTitleDisplay = document.getElementById('active-title-display');
+        
+        const startDrawBtn = document.getElementById('start-draw-btn');
+        const shuffleListBtn = document.getElementById('shuffle-list-btn');
+        const clearListBtn = document.getElementById('clear-list-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const shareBtn = document.getElementById('share-btn');
+        
+        const soundToggleBtn = document.getElementById('sound-toggle');
+        const soundIconOn = document.getElementById('sound-icon-on');
+        const soundIconOff = document.getElementById('sound-icon-off');
+
+        const rouletteCard = document.getElementById('roulette-card');
+        const drawStatusBadge = document.getElementById('draw-status-badge');
+        const winnerCrown = document.getElementById('winner-crown');
+        const winnerMeta = document.getElementById('winner-meta');
+        const winnerTimestamp = document.getElementById('winner-timestamp');
+        const postDrawActions = document.getElementById('post-draw-actions');
+
+        const slotPrev = document.getElementById('slot-prev');
+        const slotCurrent = document.getElementById('slot-current');
+        const slotNext = document.getElementById('slot-next');
+
+        /**
+         * Estado de la aplicación
+         */
+        let isSoundEnabled = true;
+        let isDrawing = false;
+        let audioCtx = null;
+
+        /**
+         * Sistema de Audio Sintetizado con Web Audio API
+         * Genera tics dinámicos durante el giro y una fanfarria al ganar.
+         */
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playTickSound(progress) {
+            if (!isSoundEnabled) return;
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                // Tono ligeramente más agudo al principio, más grave al desacelerar
+                const freq = 600 - (progress * 250);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.045);
+
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.045);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.05);
+            } catch (e) {
+                // Ignorar errores de audio en navegadores restrictivos
+            }
+        }
+
+        function playWinFanfare() {
+            if (!isSoundEnabled) return;
+            try {
+                initAudio();
+                // Acorde triunfal arpegiado (Do - Mi - Sol - Do5)
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    const startTime = audioCtx.currentTime + (idx * 0.09);
+                    const duration = idx === notes.length - 1 ? 0.65 : 0.25;
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, startTime);
+
+                    gain.gain.setValueAtTime(0.01, startTime);
+                    gain.gain.linearRampToValueAtTime(0.22, startTime + 0.03);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start(startTime);
+                    osc.stop(startTime + duration);
+                });
+            } catch (e) {
+                // Ignorar si falla
+            }
+        }
+
+        /**
+         * Mostrar notificaciones Toast elegantes
+         */
+        let toastTimeout;
+        function showToast(message, iconName = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.textContent = message;
+            toastIcon.setAttribute('data-lucide', iconName);
+            lucide.createIcons();
+
+            toast.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+                toast.classList.remove('opacity-100', 'translate-y-0');
+            }, 3000);
+        }
+
+        /**
+         * Obtener lista limpia de participantes escritos por el usuario
+         */
+        function getRawParticipants() {
+            return participantsInput.value
+                .split('\n')
+                .map(name => name.trim())
+                .filter(name => name.length > 0);
+        }
+
+        /**
+         * Actualizar contador en tiempo real
+         */
+        function updateParticipantCount() {
+            const list = getRawParticipants();
+            const count = list.length;
+            participantCountBadge.textContent = count === 1 ? '1 participante' : `${count} participantes`;
+        }
+
+        /**
+         * Mezclar visualmente la lista en el textarea
+         */
+        function shuffleTextareaList() {
+            const list = getRawParticipants();
+            if (list.length < 2) {
+                showToast('Añade al menos 2 participantes para mezclar', 'alert-circle');
+                return;
+            }
+            for (let i = list.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [list[i], list[j]] = [list[j], list[i]];
+            }
+            participantsInput.value = list.join('\n');
+            updateParticipantCount();
+            showToast('Lista mezclada aleatoriamente', 'shuffle');
+        }
+
+        /**
+         * Lógica principal de la animación del sorteo con desaceleración realista
+         * Garantiza discretamente que TARGET_WINNER sea siempre el seleccionado final.
+         */
+        function startDrawSimulation() {
+            if (isDrawing) return;
+
+            let userList = getRawParticipants();
+
+            if (userList.length < 2) {
+                showToast('Introduce al menos 2 participantes para sortear', 'alert-circle');
+                participantsInput.focus();
+                return;
+            }
+
+            isDrawing = true;
+            initAudio();
+
+            // Construir pool de animación: aseguramos que TARGET_WINNER esté presente
+            // sin alterar el textarea visible del usuario.
+            let pool = [...userList];
+            const hasTarget = pool.some(
+                name => name.toLowerCase() === TARGET_WINNER.toLowerCase()
+            );
+
+            if (!hasTarget) {
+                // Insertar en una posición intermedia del pool para que aparezca durante el giro
+                const insertPos = Math.floor(pool.length / 2);
+                pool.splice(insertPos, 0, TARGET_WINNER);
+            } else {
+                // Normalizar el formato exacto del nombre si el usuario lo escribió en minúsculas/mayúsculas
+                pool = pool.map(name =>
+                    name.toLowerCase() === TARGET_WINNER.toLowerCase() ? TARGET_WINNER : name
+                );
+            }
+
+            // Índice exacto del ganador dentro del pool
+            const winnerIndex = pool.findIndex(name => name === TARGET_WINNER);
+
+            // Preparar interfaz de sorteo
+            const titleText = giveawayTitleInput.value.trim() || 'Sorteo Oficial';
+            activeTitleDisplay.textContent = titleText;
+
+            setupView.classList.add('hidden');
+            drawView.classList.remove('hidden');
+
+            // Resetear estados visuales de ganador previo
+            winnerCrown.classList.add('hidden');
+            winnerCrown.classList.remove('flex');
+            winnerMeta.classList.add('hidden');
+            postDrawActions.classList.add('hidden');
+            postDrawActions.classList.remove('flex');
+
+            rouletteCard.classList.remove('border-amber-400', 'shadow-amber-500/20');
+            rouletteCard.classList.add('border-violet-500/40');
+            slotCurrent.classList.remove('text-amber-300', 'scale-105');
+            slotCurrent.classList.add('text-white');
+
+            drawStatusBadge.innerHTML = `
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                Sorteando en vivo...
+            `;
+            drawStatusBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 mb-2";
+
+            // Configuración de pasos para desaceleración suave y natural
+            // Calculamos un número total de saltos (entre 42 y 58) tal que el último salto caiga exactamente en winnerIndex
+            const minSteps = 44;
+            const startIndex = Math.floor(Math.random() * pool.length);
+            const remainder = (winnerIndex - startIndex + pool.length * 100) % pool.length;
+            const totalSteps = minSteps + ((remainder - (minSteps % pool.length) + pool.length) % pool.length);
+
+            let currentStep = 0;
+
+            function stepAnimation() {
+                const idx = (startIndex + currentStep) % pool.length;
+                const prevIdx = (idx - 1 + pool.length) % pool.length;
+                const nextIdx = (idx + 1) % pool.length;
+
+                slotPrev.textContent = pool[prevIdx];
+                slotCurrent.textContent = pool[idx];
+                slotNext.textContent = pool[nextIdx];
+
+                const progress = currentStep / totalSteps;
+                playTickSound(progress);
+
+                // Vibración háptica suave en dispositivos móviles compatibles
+                if (navigator.vibrate && currentStep % 2 === 0 && progress < 0.85) {
+                    navigator.vibrate(12);
+                }
+
+                if (currentStep < totalSteps) {
+                    currentStep++;
+                    // Curva de desaceleración cúbica para generar tensión al final
+                    const easeOut = Math.pow(progress, 3.2);
+                    const delay = 38 + (easeOut * 440);
+                    setTimeout(stepAnimation, delay);
+                } else {
+                    // ¡Sorteo finalizado!
+                    finalizeWinner();
+                }
+            }
+
+            // Iniciar secuencia
+            stepAnimation();
+        }
+
+        /**
+         * Mostrar celebración y tarjeta final del ganador
+         */
+        function finalizeWinner() {
+            isDrawing = false;
+
+            // Garantizar texto exacto
+            slotCurrent.textContent = TARGET_WINNER;
+
+            // Efectos visuales de victoria
+            rouletteCard.classList.remove('border-violet-500/40');
+            rouletteCard.classList.add('border-amber-400', 'shadow-amber-500/20');
+
+            slotCurrent.classList.remove('text-white');
+            slotCurrent.classList.add('text-amber-300', 'scale-105');
+
+            drawStatusBadge.innerHTML = `
+                <i data-lucide="award" class="w-3.5 h-3.5"></i>
+                Sorteo Finalizado
+            `;
+            drawStatusBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 mb-2";
+
+            winnerCrown.classList.remove('hidden');
+            winnerCrown.classList.add('flex');
+
+            // Fecha y hora actual formateada
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            const dateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            winnerTimestamp.textContent = `${dateStr} • ${timeStr}`;
+
+            winnerMeta.classList.remove('hidden');
+            postDrawActions.classList.remove('hidden');
+            postDrawActions.classList.add('flex');
+
+            lucide.createIcons();
+            playWinFanfare();
+
+            if (navigator.vibrate) {
+                navigator.vibrate([80, 50, 150]);
+            }
+
+            launchConfetti();
+        }
+
+        /**
+         * Motor de Confeti en Canvas puro (sin dependencias externas pesadas)
+         */
+        const confettiCanvas = document.getElementById('confetti-canvas');
+        const ctx = confettiCanvas.getContext('2d');
+        let confettiParticles = [];
+        let confettiAnimationId = null;
+
+        function resizeCanvas() {
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function launchConfetti() {
+            const colors = ['#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f43f5e'];
+            confettiParticles = [];
+
+            for (let i = 0; i < 130; i++) {
+                confettiParticles.push({
+                    x: confettiCanvas.width / 2 + (Math.random() - 0.5) * 120,
+                    y: confettiCanvas.height * 0.45,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: (Math.random() * -15) - 4,
+                    size: Math.random() * 8 + 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rotation: Math.random() * 360,
+                    rotationSpeed: (Math.random() - 0.5) * 12,
+                    gravity: 0.35 + Math.random() * 0.15,
+                    drag: 0.98,
+                    shape: Math.random() > 0.5 ? 'rect' : 'circle'
+                });
+            }
+
+            if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+            confettiParticles.forEach((p, index) => {
+                p.vx *= p.drag;
+                p.vy += p.gravity;
+                p.x += p.vx;
+                p.y += p.vy;
+                p.rotation += p.rotationSpeed;
+
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate((p.rotation * Math.PI) / 180);
+                ctx.fillStyle = p.color;
+
+                if (p.shape === 'rect') {
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+
+                if (p.y > confettiCanvas.height + 30) {
+                    confettiParticles.splice(index, 1);
+                }
+            });
+
+            if (confettiParticles.length > 0) {
+                confettiAnimationId = requestAnimationFrame(animateConfetti);
+            } else {
+                ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            }
+        }
+
+        /**
+         * Compartir resultado (Web Share API con fallback al portapapeles)
+         */
+        async function shareResult() {
+            const title = giveawayTitleInput.value.trim() || 'Sorteo';
+            const shareText = `🏆 ¡Resultado de "${title}"!\n\nEl ganador/a es: ✨ ${TARGET_WINNER} ✨\n\nRealizado con SorteoPro.`;
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: title,
+                        text: shareText
+                    });
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') return;
+                }
+            }
+
+            // Fallback: copiar al portapapeles mediante execCommand
+            const tempInput = document.createElement('textarea');
+            tempInput.value = shareText;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showToast('Resultado copiado al portapapeles', 'check');
+            } catch (e) {
+                showToast('No se pudo copiar el resultado', 'alert-circle');
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        /**
+         * Event Listeners
+         */
+        participantsInput.addEventListener('input', updateParticipantCount);
+
+        shuffleListBtn.addEventListener('click', shuffleTextareaList);
+
+        clearListBtn.addEventListener('click', () => {
+            participantsInput.value = '';
+            updateParticipantCount();
+            participantsInput.focus();
+            showToast('Lista vaciada', 'trash-2');
+        });
+
+        startDrawBtn.addEventListener('click', startDrawSimulation);
+
+        resetBtn.addEventListener('click', () => {
+            if (confettiAnimationId) {
+                cancelAnimationFrame(confettiAnimationId);
+                ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            }
+            drawView.classList.add('hidden');
+            setupView.classList.remove('hidden');
+        });
+
+        shareBtn.addEventListener('click', shareResult);
+
+        soundToggleBtn.addEventListener('click', () => {
+            isSoundEnabled = !isSoundEnabled;
+            if (isSoundEnabled) {
+                soundIconOn.classList.remove('hidden');
+                soundIconOff.classList.add('hidden');
+                showToast('Sonido activado', 'volume-2');
+            } else {
+                soundIconOn.classList.add('hidden');
+                soundIconOff.classList.remove('hidden');
+                showToast('Sonido silenciado', 'volume-x');
+            }
+        });
+
+        /**
+         * Inicialización al cargar la página
+         */
+        window.addEventListener('DOMContentLoaded', () => {
+            participantsInput.value = DEFAULT_PARTICIPANTS.join('\n');
+            updateParticipantCount();
+        });
+    </script>
+</body>
+</html>
